@@ -1,3 +1,4 @@
+
 name: Build APK
 on:
   workflow_dispatch:
@@ -18,12 +19,16 @@ jobs:
           distribution: temurin
           java-version: 21
       - name: Build
+        env:
+          AI_URL: ${{ secrets.AI_URL }}
+          AI_CODE: ${{ secrets.AI_CODE }}
         run: |
           set -e
           ZIP=$(ls *.zip | head -n1)
           unzip -o "$ZIP" -d proj
           ROOT=$(dirname "$(find proj -maxdepth 2 -name package.json | head -n1)")
           cd "$ROOT"
+          if [ -n "$AI_URL" ]; then sed -i "s#@@AI_URL@@#$AI_URL#; s#@@AI_CODE@@#$AI_CODE#" www/index.html; fi
           npm install
           npx cap add android
           npx --yes @capacitor/assets generate --android --iconBackgroundColor '#cfe0fc' --iconBackgroundColorDark '#cfe0fc' || echo "icon step skipped"
@@ -31,6 +36,8 @@ jobs:
           cp native/*.java android/app/src/main/java/com/abhi/medimate/
           python3 native/patch_manifest.py
           npx cap sync android
+          mkdir -p ~/.android
+          cp native/debug.keystore ~/.android/debug.keystore
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -41,3 +48,4 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: MediMate v${{ github.run_number }}
           files: MediMate.apk
+          
