@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Open in MediMate</title>
+<style>body{font-family:Roboto,Arial,sans-serif;background:#f8fafd;color:#1f1f1f;margin:0;padding:28px 20px;text-align:center}
+.card{max-width:420px;margin:40px auto;background:#fff;border-radius:24px;padding:28px 22px;box-shadow:0 2px 14px rgba(0,0,0,.08)}
+h1{font-size:22px;margin:0 0 8px}p{color:#5f6368;line-height:1.5;font-size:15px}
+a.b{display:block;margin:14px 0 0;padding:14px;border-radius:22px;background:#0b57d0;color:#fff;text-decoration:none;font-weight:500}
+a.s{background:#eef2fa;color:#0b57d0}</style></head>
+<body><div class="card"><h1>Open in MediMate</h1>
+<p id="msg">Opening the MediMate app&hellip;</p>
+<a class="b" id="open" href="#">Open in MediMate</a>
+<a class="b s" href="https://github.com/abhinavvnm1529-cloud/Medimate-/releases/latest">Get the MediMate app</a>
+<p style="font-size:12px">The profile information stays inside this link and is sent only to your own app. It is not saved on any server.</p></div>
+<script>
+(function(){
+  var m=location.hash.match(/[#&]d=([A-Za-z0-9_\-]+)/),msg=document.getElementById('msg'),btn=document.getElementById('open');
+  if(!m){msg.textContent='This link has no profile in it.';btn.style.display='none';return}
+  var d=m[1],app='medimate://import?d='+d,fb=encodeURIComponent('https://github.com/abhinavvnm1529-cloud/Medimate-/releases/latest');
+  var android=/Android/i.test(navigator.userAgent);
+  var go=android?'intent://import?d='+d+'#Intent;scheme=medimate;package=com.abhi.medimate;S.browser_fallback_url='+fb+';end':app;
+  btn.href=go;
+  if(android)setTimeout(function(){location.href=go},500);else msg.textContent='Open this link on an Android phone that has MediMate installed.';
+})();
+</script></body></html>
