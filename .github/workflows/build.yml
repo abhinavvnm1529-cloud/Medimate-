@@ -1,4 +1,3 @@
-
 name: Build APK
 on:
   workflow_dispatch:
@@ -28,6 +27,8 @@ jobs:
           unzip -o "$ZIP" -d proj
           ROOT=$(dirname "$(find proj -maxdepth 2 -name package.json | head -n1)")
           cd "$ROOT"
+          VER=$(grep -o "APP_VERSION='[0-9.]*'" www/index.html | grep -o "[0-9][0-9.]*" | head -n1)
+          echo "VER=$VER" >> "$GITHUB_ENV"
           if [ -n "$AI_URL" ]; then sed -i "s#@@AI_URL@@#$AI_URL#; s#@@AI_CODE@@#$AI_CODE#" www/index.html; fi
           npm install
           npx cap add android
@@ -45,7 +46,6 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: MediMate v${{ github.run_number }}
+          tag_name: v${{ env.VER }}
+          name: MediMate v${{ env.VER }}
           files: MediMate.apk
-          
