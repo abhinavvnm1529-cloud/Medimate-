@@ -23,9 +23,41 @@ jobs:
           AI_CODE: ${{ secrets.AI_CODE }}
         run: |
           set -e
-          ZIP=$(ls *.zip | head -n1)
-          unzip -o "$ZIP" -d proj
-          ROOT=$(dirname "$(find proj -maxdepth 2 -name package.json | head -n1)")
+          # Find the project no matter how it was uploaded: loose files, a zip, or a zip inside a zip.
+          # If several versions are present, the highest APP_VERSION wins.
+          python3 - <<'PY'
+          import glob, os, re, shutil, subprocess, zipfile
+          def unpack(src, dst):
+              os.makedirs(dst, exist_ok=True)
+              with zipfile.ZipFile(src) as z: z.extractall(dst)
+              for _ in range(4):
+                  nested = [os.path.join(r, f) for r, _, fs in os.walk(dst) for f in fs if f.lower().endswith('.zip')]
+                  if not nested: break
+                  for n in nested:
+                      with zipfile.ZipFile(n) as z: z.extractall(n[:-4] + '_x')
+                      os.remove(n)
+          def find_root(base):
+              for r, ds, fs in os.walk(base):
+                  ds[:] = [d for d in ds if d != 'node_modules']
+                  if 'package.json' in fs and os.path.exists(os.path.join(r, 'www', 'index.html')): return r
+          def ver(root):
+              m = re.search(r"APP_VERSION='([0-9.]+)'", open(os.path.join(root, 'www', 'index.html'), encoding='utf-8').read())
+              return tuple(int(x) for x in m.group(1).split('.')) if m else (0,)
+          shutil.rmtree('proj', ignore_errors=True)
+          cands = []
+          for i, z in enumerate(sorted(glob.glob('*.zip'))):
+              try: unpack(z, 'proj/c%d' % i)
+              except Exception as e: print('skip', z, e); continue
+              r = find_root('proj/c%d' % i)
+              if r: cands.append((ver(r), r)); print('found', z, '->', r, ver(r))
+          if os.path.exists('package.json') and os.path.exists('www/index.html'): cands.append((ver('.'), '.')); print('found loose project files')
+          if not cands: raise SystemExit('No MediMate project found. Upload the MediMate_Native zip to the repo root.')
+          cands.sort(key=lambda c: c[0])
+          best = cands[-1][1]
+          print('USING', best, cands[-1][0])
+          open('/tmp/mm_root.txt', 'w').write(os.path.abspath(best))
+          PY
+          ROOT=$(cat /tmp/mm_root.txt)
           cd "$ROOT"
           VER=$(grep -o "APP_VERSION='[0-9.]*'" www/index.html | grep -o "[0-9][0-9.]*" | head -n1)
           echo "VER=$VER" >> "$GITHUB_ENV"
@@ -41,8 +73,13 @@ jobs:
           cp native/debug.keystore ~/.android/debug.keystore
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/MediMate.apk"
+          ./gradlew assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/MediMate.apk"
+      - name: Verify APK signature
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n1)
+          $BT/apksigner verify --print-certs MediMate.apk
+          sha256sum MediMate.apk
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
